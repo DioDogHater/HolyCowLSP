@@ -1,0 +1,14 @@
+#include "test"
+#define X 100
+
+struct test {
+    int x = 10; // Test
+    private void test();
+}
+
+variant test2 {
+    int y = 15;
+}
+
+test x = 10;
+x.x;

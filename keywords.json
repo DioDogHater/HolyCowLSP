@@ -1,0 +1,170 @@
+{
+    "public" : {
+        "type":"Modifier",
+        "msg":"Can be accessed from anywhere."
+    },
+    "private" : {
+        "type":"Modifier",
+        "msg":"Only accessible to the class / module / file where it is declared."
+    },
+    "protected" : {
+        "type":"Modifier",
+        "msg":"Only accessible to children and the class itself."
+    },
+    "extern" : {
+        "type":"Modifier",
+        "msg":"Means: will be defined in another file."
+    },
+    "@peek" : {
+        "type":"Modifier",
+        "msg":"On private or protected member, can be read / referenced from anywhere."
+    },
+    "@cfunc" : {
+        "type":"Modifier",
+        "msg":"C function from an external library."
+    },
+    "constexpr" : {
+        "type":"Statement",
+        "msg":"Define a compile-time int / float constant.",
+        "ex":["constexpr int x = 1 << 12 + 3;",
+            "constexpr float y = 10.0 * 5.56;"]
+    },
+    "if" : {
+        "type":"Statement",
+        "msg":"Execute code only if a condition is true.",
+        "ex":["if(cond){ ... }",
+            "if(cond) ...;"]
+    },
+    "elif" : {
+        "type":"Statement",
+        "msg":"Short for `else if`. If precedent conditions are false, run code if a condition is true.",
+        "ex":["elif(cond){ ... }",
+            "elif(cond) ...;"]
+    },
+    "else" : {
+        "type":"Statement",
+        "msg":"If all precedent conditions are false, execute code.",
+        "ex":["else{ ... }",
+            "else ...;"]
+    },
+    "while" : {
+        "type":"Loop",
+        "msg":"Repeat code while the condition is true.",
+        "ex":["while(condition){ ... }"]
+    },
+    "for" : {
+        "type":"Loop",
+        "msg":"Repeat code while the condition is true. Runs `init` at the start of the loop and `step` after every repeat.",
+        "ex":["for(init; condition; step){ ... }"]
+    },
+    "repeat" : {
+        "type":"Loop",
+        "msg":"Repeat a number of times.",
+        "ex":["repeat(number of times){ ... }"]
+    },
+    "forever" : {
+        "type":"Loop",
+        "msg":"Repeat forever.",
+        "ex":["forever{ ... }"]
+    },
+    "switch" : {
+        "type":"Loop",
+        "msg":"Check for possible values of an int / object.",
+        "ex":["switch(int){ ... }",
+        "switch(obj : o){ ... }"]
+    },
+    "case" : {
+        "type":"Statement",
+        "msg":"Inside a switch, check for a value / condition.",
+        "ex":["case value:\n\t...", "case condition:\n\t..."]
+    },
+    "default" : {
+        "type":"Statement",
+        "msg":"Inside a switch, runs if all cases failed.",
+        "ex":["default:\n\t..."]
+    },
+    "break" : {
+        "type":"Statement",
+        "msg":"Exit a loop."
+    },
+    "continue" : {
+        "type":"Statement",
+        "msg":"Skip current repeat of the loop and go to the next one."
+    },
+    "@next" : {
+        "type":"Statement",
+        "msg":"Go to next `else if` statement or next `case` statement."
+    },
+    "@end" : {
+        "type":"Statement",
+        "msg":"Go to the end of the `if-else` chain or the `switch` statement."
+    },
+    "return" : {
+        "type":"Statement",
+        "msg":"End a function and optionally return a value.",
+        "ex":["return;", "return *value*;"]
+    },
+    "and" : {
+        "type":"Operator",
+        "msg":"Same as `&&`. Logical and.",
+        "ex":["false and false = false",
+            "true and false = false",
+            "true and true = true"]
+    },
+    "or" : {
+        "type":"Operator",
+        "msg":"Same as `||`. Logical or.",
+        "ex":["false or false = false",
+            "true or false = true",
+            "true or true = true"]
+    },
+    "not" : {
+        "type":"Operator",
+        "msg":"Same as `!`. Logical not.",
+        "ex":["not true = false",
+            "not false = true"]
+    },
+    "@asm" : {
+        "type":"Statement",
+        "msg":"Inline assembly. Temporaries (general purpose registers) available from @0 to @9.",
+        "ex":["@asm(used registers, \"assembly\", temporary values)"]
+    },
+    "struct" : {
+        "type":"Declare a",
+        "msg":"Creates a new struct type.",
+        "ex":["struct name;", "struct name { ... }"]
+    },
+    "union" : {
+        "type":"Declare a",
+        "msg":"Creates a new union type.",
+        "ex":["union name;", "union name { ... }"]
+    },
+    "variant" : {
+        "type":"Declare a",
+        "msg":"Creates a union type with an extra `type` member holding the currently used member in the union.",
+        "ex":["variant name { ... }"]
+    },
+    "class" : {
+        "type":"Declare a",
+        "msg":"Creates a class type. All members must be defined together and before any function is <u>defined</u>. Any number of `class` blocks can be used to define a class.",
+        "ex":["class name { ... }"]
+    },
+    "module" : {
+        "type":"Declare a",
+        "msg":"Create a global module. Any number of `module` blocks can be used to define a module.",
+        "ex":["module name { ... }"]
+    },
+    "enum" : {
+        "type":"Declare an",
+        "msg":"Creates an enumeration.",
+        "ex":["enum name { ... }"]
+    },
+    "sizeof" : {
+        "type":"Built-in function",
+        "msg":"Get size of a type / variable in bytes."
+    },
+    "typeof" : {
+        "type":"Built-in function",
+        "msg":"Get type of variable / expression in bytes."
+    }
+}
