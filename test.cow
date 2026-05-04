@@ -2,9 +2,10 @@
 #define X 100
 
 struct test {
-    int x = 10; // Test
-    private void test();
+    int x = 10;
 }
+
+@cfunc int test(int x);
 
 variant test2 {
     int y = 15;

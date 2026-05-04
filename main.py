@@ -115,19 +115,24 @@ class Token:
             return s
 
         elif self.tk_type == "function":
-            s : str = f"*{self.context.get('type', '?')}* {self.text}({self.context.get('params', '?')})"
+            mod : str = self.context["mod"]+" " if "mod" in self.context else ""
+            s : str = f"*{mod}{self.context.get('type', '?')}* {self.text}({self.context.get('params', '?')})"
             if "docs" in self.context:
                 s += "\n\n"+self.context["docs"]
             return s
 
         elif self.tk_type == "member":
             s : str = f"Member *{self.text}* (`{self.context.get('type', '?')}`)"
+            if "mods" in self.context:
+                s += "\n\n*"+" ".join(self.context["mods"])+"* "
             if "docs" in self.context:
                 s += "\n\n"+self.context["docs"]
             return s
 
         elif self.tk_type == "variable":
             s : str = f"Variable *{self.text}* (`{self.context.get('type', '?')}`)"
+            if "mods" in self.context:
+                s += "\n\n*"+" ".join(self.context["mods"])+"* "
             if "docs" in self.context:
                 s += "\n\n"+self.context["docs"]
             return s
@@ -575,7 +580,7 @@ class HolyCowLS(LanguageServer):
                 tk.tk_type = "member"
                 if tk_is(-2, tk_type="namespace") and tks[idx - 2].context["type"] == "Module":
                     tk.context = modules[tks[idx-2].text]["vars"].get(tk.text, {})
-                elif tk_is(-2, tk_type="variable") or tk_is(-2, tk_type="parameter"):
+                elif tk_is(-2, tk_type="variable") or tk_is(-2, tk_type="parameter") or tk_is(-2, tk_type="member"):
                     t : str = extract_type(tks[idx-2].context.get('type', '?'))
                     if t in custom_types:
                         tk.context = custom_types[t]["members"].get(tk.text, {})
@@ -629,8 +634,10 @@ class HolyCowLS(LanguageServer):
                 if not in_params and curr_func_type == None and curr_module:
                     # Check for documentation
                     after : int = tk_find(1, 1, txt=";") + 1
-                    if tk_is(after, tk_type="comment"):
+                    if tk_is(after, tk_type="comment") and tks[idx + after].line == tk.line:
                         tk.context["docs"] = tks[idx + after].text
+                    elif tk_is(before, tk_type="comment"):
+                        tk.context["docs"] = tks[idx + before].text
 
                     modules[curr_module]["vars"][tk.text] = tk.context
 
@@ -643,8 +650,10 @@ class HolyCowLS(LanguageServer):
 
                     # Check for documentation
                     after : int = tk_find(1, 1, txt=";") + 1
-                    if tk_is(after, tk_type="comment"):
+                    if tk_is(after, tk_type="comment") and tks[idx + after].line == tk.line:
                         tk.context["docs"] = tks[idx + after].text
+                    elif tk_is(before, tk_type="comment"):
+                        tk.context["docs"] = tks[idx + before].text
 
                     custom_types[curr_type]["members"][tk.text] = tk.context
 
