@@ -4,6 +4,8 @@ import attrs
 import json
 import enum
 
+import time
+
 from functools import reduce
 import operator
 
@@ -58,7 +60,7 @@ STRING_START = re.compile(r"\".*")
 STRING_END = re.compile(r".*[^\\]?\"")
 
 # Keywords
-with open(path.join(__file__.removesuffix("main.py"), "keywords.json"), "r") as f:
+with open(path.join(path.dirname(__file__), "keywords.json"), "r") as f:
     KEYWORDS = json.load(f)
 
 class Token:
@@ -84,6 +86,10 @@ class Token:
                 prot = "\\#"
             if "@peek" in mods:
                 prot += "(*peek*)"
+            if "constexpr" in mods:
+                prot += "(*const*)"
+            if "virtual" in mods:
+                prot += "(*virt*)"
             return prot
 
         if self.tk_type == "keyword":
@@ -91,46 +97,53 @@ class Token:
             return f"### {kw.get('type', 'Keyword')} `{self.text}`\n*{kw.get('msg', '')}*\n```\n{'\n'.join(kw.get('ex', ['']))}\n```"
 
         elif self.tk_type == "type":
-            s : str = f"## Type `{self.text}` (*{self.context.get('type', 'unknown')}*)\nsize = {self.context.get('size', 'unknown')}, align = {self.context.get('align', 'unknown')}"
+            s : str = f"## Type `{self.text}` (*{self.context.get('type', 'unknown')}*)\nsize = {self.context.get('size', '?')}, align = {self.context.get('align', '?')}"
+
+            if "docs" in self.context and self.context["docs"]:
+                s += f"\n\n{self.context['docs']}\n"
+
+            if "parent" in self.context:
+                s += f"\n\n*Inherits {self.context['parent']}*\n"
 
             if "members" in self.context and self.context["members"]:
                 m : dict = self.context["members"]
-                s += f"\n### Members\n{'\n\n'.join([get_prot(val.get('mods', []))+' **'+name+'** : *'+val.get('type', '?')+'*'+(f' = `{val['val']}`' if 'val' in val else '') for name, val in m.items()])}"
+                s += f"\n### Members\n{'\n\n'.join([get_prot(val.get('mods', []))+' **'+name+'** : *'+val.get('type', '?')+'*'+(f' = `{val['default_val'] if 'default_val' in val else val['val']}`' if 'default_val' in val or 'val' in val else '') for name, val in m.items()])}"
 
             if "methods" in self.context and self.context["methods"]:
                 m : dict = self.context["methods"]
-                s += f"\n### Methods\n{'\n\n'.join([get_prot([val.get('mod', '')])+' *'+val.get('type', '?')+'* '+name+'('+val.get('params', '?')+')' for name, val in m.items()])}"
+                s += f"\n### Methods\n{'\n\n'.join([get_prot(val.get('mods', []))+' *'+val.get('type', '?')+'* **'+name+'**('+val.get('params', '?')+')' for name, val in m.items()])}"
 
             return s
 
         elif self.tk_type == "namespace":
             s : str = f"## {self.context['type']} `{self.text}`"
             if self.context["type"] == "Module":
-                if self.context["vars"]:
+                if "docs" in self.context and self.context["docs"]:
+                    s += f"\n{self.context['docs']}\n"
+
+                if "vars" in self.context and self.context["vars"]:
                     m : dict = self.context["vars"]
-                    s += f"\n*Variables*:\n{'\n'.join(['* *'+val.get('type', '?')+'* : '+name+(f' = `{val['val']}`' if 'val' in val else '') for name, val in m.items()])}\n"
-                if self.context["funcs"]:
+                    s += f"\n***Members:***\n\n{'\n\n'.join([get_prot(val.get('mods', []))+' **'+name+'** : *'+val.get('type', '?')+'*'+(f' = `{val['val']}`' if 'val' in val else '') for name, val in m.items()])}\n"
+
+                if "funcs" in self.context and self.context["funcs"]:
                     m : dict = self.context["funcs"]
-                    s += f"\n*Functions*:\n{'\n'.join(['* *'+val.get('type', '?')+'* '+name+'('+val.get('params', '?')+')' for name, val in m.items()])}"
+                    s += f"\n***Methods:***\n\n{'\n\n'.join([get_prot(val.get('mods', []))+' *'+val.get('type', '?')+'* **'+name+'**('+val.get('params', '?')+')' for name, val in m.items()])}"
+            elif self.context["type"] == "Enum":
+                s += f"\n{'\n\n'.join([x + f' = {v['val']}' if 'val' in v else '' for x, v in self.context['vals'].items()])}"
+
             return s
 
         elif self.tk_type == "function":
-            mod : str = self.context["mod"]+" " if "mod" in self.context else ""
-            s : str = f"*{mod}{self.context.get('type', '?')}* {self.text}({self.context.get('params', '?')})"
+            mods : str = " ".join(self.context["mods"])+" " if "mods" in self.context else ""
+            s : str = f"```\n{mods}{self.context.get('type', '?')} {self.text}({self.context.get('params', '?')})\n```"
             if "docs" in self.context:
                 s += "\n\n"+self.context["docs"]
             return s
 
-        elif self.tk_type == "member":
-            s : str = f"Member *{self.text}* (`{self.context.get('type', '?')}`)"
-            if "mods" in self.context:
-                s += "\n\n*"+" ".join(self.context["mods"])+"* "
-            if "docs" in self.context:
-                s += "\n\n"+self.context["docs"]
-            return s
-
-        elif self.tk_type == "variable":
-            s : str = f"Variable *{self.text}* (`{self.context.get('type', '?')}`)"
+        elif self.tk_type == "member" or self.tk_type == "variable":
+            s : str = f"{'Member' if self.tk_type == 'member' else 'Var'} *{self.text}* (`{self.context.get('type', '?')}`)"
+            if "val" in self.context:
+                s += f" = `{self.context['val']}`"
             if "mods" in self.context:
                 s += "\n\n*"+" ".join(self.context["mods"])+"* "
             if "docs" in self.context:
@@ -138,7 +151,7 @@ class Token:
             return s
 
         elif self.tk_type == "parameter":
-            return f"Parameter *{self.text}* (`{self.context.get('type', '?')}`)"
+            return f"Param *{self.text}* (`{self.context.get('type', '?')}`)"
 
         elif self.tk_type == "number":
             s : str = f"Number = `{self.text}`"
@@ -146,15 +159,15 @@ class Token:
                 if self.text.startswith("0x") or self.text.startswith("0b") or self.text.startswith("0o"):
                     s += f"\n\ndec = {int(self.text, base=0)}"
                 else:
-                    s += f"\n\nhex = 0x{int(self.text):x}"
+                    s += f"\n\nhex = 0x{int(self.text):X}"
             except: pass
             return s
 
         elif self.tk_type == "string":
             if self.text[0] == '"':
-                return f"String = {self.text}\n\nlength = {len(self.text) - 2}"
+                return f"{self.text}\n\nlength = {len(self.text) - 2}"
             else:
-                return f"Character = {self.text}"
+                return f"{self.text}"
 
         elif self.tk_type == "macro":
             if self.context["type"] == "unknown":
@@ -181,6 +194,7 @@ class HolyCowLS(LanguageServer):
         self.tokens : dict[str, list[Token]] = {}
 
     def __lex(self, doc : TextDocument) -> list[Token]:
+        start_time = time.perf_counter()
         tks : list[Token] = []
 
         comment : Token | None = None
@@ -212,7 +226,7 @@ class HolyCowLS(LanguageServer):
                     pass
 
                 elif (match := COMMENTS.match(line)) is not None or (match := MLCOM_ONE.match(line)) is not None:
-                    if len(tks) > 0 and tks[-1].tk_type == "comment" and tks[-1].line == cur_line - 1 and tks[-1].offset - 2 == offset:
+                    if len(tks) > 0 and tks[-1].tk_type == "comment" and tks[-1].line + tks[-1].text.count("\n") == cur_line - 1 and tks[-1].offset - 2 == offset:
                         tks[-1].text += "\n" + match.group(1)
                     else:
                         tks.append(Token(
@@ -223,7 +237,7 @@ class HolyCowLS(LanguageServer):
                         ))
 
                 elif (match := MLCOM_START.match(line)) is not None:
-                    if len(tks) > 0 and tks[-1].tk_type == "comment" and tks[-1].line == cur_line - 1 and tks[-1].offset - 2 == offset:
+                    if len(tks) > 0 and tks[-1].tk_type == "comment" and tks[-1].line + tks[-1].text.count("\n") == cur_line - 1 and tks[-1].offset - 2 == offset:
                         tks[-1].text += "\n" + match.group(1)
                         comment = tks[-1]
                         break
@@ -307,6 +321,7 @@ class HolyCowLS(LanguageServer):
                 line = line[match.end():]
                 offset += len(match.group(0))
 
+        logging.log(logging.CRITICAL, f"Tokenized {doc.path} in {time.perf_counter() - start_time} seconds")
         return tks
 
     def __classify_tokens(self, tks : list[Token],
@@ -317,7 +332,7 @@ class HolyCowLS(LanguageServer):
                           modules : dict,
                           enums : dict,
                           macros : dict) -> list[Token]:
-
+        start_time = time.perf_counter()
         idx : int = 0
 
         def tk_is(offset : int, tk_type : str | None = None, txt : str | tuple[str, ...] | None = None) -> bool:
@@ -424,7 +439,7 @@ class HolyCowLS(LanguageServer):
                     in_params = False
 
             if tk.tk_type == "macro":
-                if tk.context["type"] == "define":
+                if tk.context["type"] == "define" and "name" in tk.context:
                     macros[tk.context["name"]] = tk.context.get("val", "")
                 elif tk.context["type"] == "include":
                     include_dir : str | None = tk.context.get("dir", None)
@@ -433,7 +448,7 @@ class HolyCowLS(LanguageServer):
 
                         # Cached analysis
                         if real_path in self.cache:
-                            logging.log(logging.DEBUG, f"USING CACHED : {real_path}")
+                            # logging.log(logging.CRITICAL, f"USING CACHED : {real_path}")
                             vrs, fns, cts, mods, enms, mcrs = self.cache[real_path]
                             transfer_dict(variables, vrs)
                             transfer_dict(functions, fns)
@@ -450,12 +465,12 @@ class HolyCowLS(LanguageServer):
                             with open(real_path, "r") as f:
                                 source = f.read()
                         except IOError as e:
-                            logging.log(logging.DEBUG, f"FAILED TO LOAD INCLUDED FILE {real_path} : {e}")
+                            logging.log(logging.CRITICAL, f"FAILED TO LOAD INCLUDED FILE {real_path} : {e}")
                             tk.context["dir"] += " [Invalid path]"
                         else:
                             included_tks : list[Token] = self.__lex(TextDocument(include_dir, source))
                             self.__classify_tokens(included_tks, real_path, variables, functions, custom_types, modules, enums, macros)
-                            logging.log(logging.DEBUG, f"ANALYSED INCLUDED FILE : {real_path}")
+                            # logging.log(logging.CRITICAL, f"ANALYSED INCLUDED FILE : {real_path}")
 
             if tk.tk_type:
                 pass
@@ -482,8 +497,14 @@ class HolyCowLS(LanguageServer):
             # Module definition
             elif tk_is(-1, txt="module"):
                 tk.tk_type = "namespace"
-                tk.context = {"type":"Module", "funcs":{}, "vars":{}}
-                modules[tk.text] = tk.context
+                if tk.text in modules:
+                    tk.context = modules[tk.text]
+                else:
+                    tk.context = {"type":"Module", "funcs":{}, "vars":{}}
+                    modules[tk.text] = tk.context
+
+                if tk_is(-2, tk_type="comment"):
+                    tk.context["docs"] = tks[idx - 2].text
 
                 curr_func_type = None
                 curr_module = tk.text
@@ -492,7 +513,7 @@ class HolyCowLS(LanguageServer):
             # Enum definition
             elif tk_is(-1, txt="enum"):
                 tk.tk_type = "namespace"
-                tk.context = {"type":"Enum", "vals":[]}
+                tk.context = {"type":"Enum", "vals":{}}
                 enums[tk.text] = tk.context
 
                 curr_func_type = None
@@ -502,7 +523,10 @@ class HolyCowLS(LanguageServer):
             # Enum constant
             elif curr_enum:
                 tk.tk_type = "member"
-                enums[curr_enum]["vals"].append(tk.text)
+                tk.context = {"type": "int"}
+                if tk_is(1, txt="=") and tk_is(2, tk_type="number"):
+                    tk.context["val"] = tks[idx + 2].text
+                enums[curr_enum]["vals"][tk.text] = tk.context
 
             # Accessing modules / enums
             elif tk_is(1, txt=".") and ((tk.text in modules) or (tk.text in enums)):
@@ -520,7 +544,25 @@ class HolyCowLS(LanguageServer):
                         tk.context["members"]["type"] = {}
                     custom_types[tk.text] = tk.context
 
-                if tk_is(1, txt="{"):
+                if tk_is(-2, tk_type="comment"):
+                    tk.context["docs"] = tks[idx - 2].text
+
+                after : int = 1
+                if tk_is(-1, txt=("struct", "class")) and tk_is(1, txt=":") and (tk_is(2, tk_type="") or tk_is(2, tk_type="type")):
+                    tk.context["parent"] = tks[idx+2].text
+                    if tk.context["parent"] in custom_types:
+                        transfer_dict(tk.context, custom_types[tk.context["parent"]])
+                        transfer_dict(tk.context["methods"], custom_types[tk.context["parent"]]["members"])
+                        transfer_dict(tk.context["members"], custom_types[tk.context["parent"]]["members"])
+
+                    after = 3
+                    custom_types[tk.text] = tk.context
+
+                if tk_is(-1, txt="class") and tk_is(after, txt="virtual"):
+                    tk.context["members"]["__VTABLE"] = {"type":"void*", "mods":["protected"]}
+                    after += 1
+
+                if tk_is(after, txt="{"):
                     curr_func_type = None
                     curr_type = tk.text
                     brace_count = 0
@@ -535,19 +577,28 @@ class HolyCowLS(LanguageServer):
 
                     # Parameters
                     params : list[Token] = tk_countdown(2)
+                    is_param_type : bool = True
                     s : str = ""
                     for p in params:
-                        if (p.tk_type != "number" and p.tk_type != "string" and p.tk_type != "operator") and not s.endswith("=") and s != "":
-                            s += " "
                         s += p.text
+                        if is_param_type and (p.tk_type == "" or p.tk_type == "type"):
+                            is_param_type = False
+                            s += " "
+                        elif p.text == ",":
+                            is_param_type = True
+                            s += " "
                     tk.context["params"] = s
 
                     # Modifiers and documentation
                     before : int = tk_find(-1, -1, tk_type="type") - 1
                     if tk_is(before, txt=("public","private","protected","extern","@cfunc")):
-                        tk.context["mod"] = tks[idx + before].text
-                        logging.log(logging.DEBUG, f"MODIFIER {tk.context['mod']}")
+                        tk.context["mods"] = [tks[idx + before].text]
                         before -= 1
+                    if tk_is(before, txt="virtual"):
+                        if "mods" in tk.context:
+                            tk.context["mods"].insert(0, "virtual")
+                        else:
+                            tk.context["mods"] = ["virtual"]
                     if tk_is(before, tk_type="comment"):
                         tk.context["docs"] = tks[idx + before].text
 
@@ -580,6 +631,8 @@ class HolyCowLS(LanguageServer):
                 tk.tk_type = "member"
                 if tk_is(-2, tk_type="namespace") and tks[idx - 2].context["type"] == "Module":
                     tk.context = modules[tks[idx-2].text]["vars"].get(tk.text, {})
+                elif tk_is(-2, tk_type="namespace") and tks[idx - 2].context["type"] == "Enum":
+                    tk.context = enums[tks[idx-2].text]["vals"].get(tk.text, {})
                 elif tk_is(-2, tk_type="variable") or tk_is(-2, tk_type="parameter") or tk_is(-2, tk_type="member"):
                     t : str = extract_type(tks[idx-2].context.get('type', '?'))
                     if t in custom_types:
@@ -597,12 +650,14 @@ class HolyCowLS(LanguageServer):
                     tk.context = {"type": "?"}
 
             # this built-in variable
-            elif tk.text == "this":
+            elif tk.text == "this" and curr_type:
                 tk.tk_type = "parameter"
-                if curr_type:
-                    tk.context = {"type": curr_type + "*"}
-                else:
-                    tk.context = {"type": "?"}
+                tk.context = {"type": curr_type + "*"}
+
+            # super built-in variable
+            elif tk.text == "super" and curr_type and "parent" in custom_types[curr_type]:
+                tk.tk_type = "parameter"
+                tk.context = {"type": custom_types[curr_type].get("parent", "?") + "*"}
 
             # Variable declaration
             elif (t := tk_get_type(-1)) is not None:
@@ -638,6 +693,9 @@ class HolyCowLS(LanguageServer):
                         tk.context["docs"] = tks[idx + after].text
                     elif tk_is(before, tk_type="comment"):
                         tk.context["docs"] = tks[idx + before].text
+                    if tk_is(-2, txt="constexpr"):
+                        tk.context["mods"] = ["constexpr"]
+                        tk.context["val"] = "".join([x.text for x in tk_until(2, txt=";")])
 
                     modules[curr_module]["vars"][tk.text] = tk.context
 
@@ -646,7 +704,7 @@ class HolyCowLS(LanguageServer):
                     # Change to be member
                     tk.tk_type = "member"
                     if tk_is(1, txt="="):
-                        tk.context["val"] = "".join([x.text for x in tk_until(2, txt=";")])
+                        tk.context["default_val"] = "".join([x.text for x in tk_until(2, txt=";")])
 
                     # Check for documentation
                     after : int = tk_find(1, 1, txt=";") + 1
@@ -683,8 +741,13 @@ class HolyCowLS(LanguageServer):
                     if tk_is(before, tk_type="comment"):
                         tk.context["docs"] = tks[idx + before].text
 
+                    if tk_is(-2, txt="constexpr"):
+                        tk.context["mods"] = ["constexpr"]
+                        tk.context["val"] = "".join([x.text for x in tk_until(2, txt=";")])
+
                     variables[tk.text] = tk.context
 
+            # Macro value
             elif tk.text in macros:
                 tk.tk_type = "macro"
                 tk.context = {"type":"macro", "val": macros[tk.text]}
@@ -705,6 +768,7 @@ class HolyCowLS(LanguageServer):
 
             idx += 1
 
+        logging.log(logging.CRITICAL, f"Analysed {curr_path} in {time.perf_counter() - start_time} seconds")
         self.cache[curr_path] = (variables, functions, custom_types, modules, enums, macros)
 
     def parse(self, doc : TextDocument) -> None:
@@ -794,5 +858,5 @@ def hover(ls: HolyCowLS, params: types.HoverParams):
 # -----------------------------
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG, format="%(message)s")
+    logging.basicConfig(level=logging.CRITICAL, format="%(message)s")
     start_server(server)

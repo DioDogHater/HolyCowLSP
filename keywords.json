@@ -21,10 +21,15 @@
     },
     "@cfunc" : {
         "type":"Modifier",
-        "msg":"C function from an external library."
+        "msg":"C convention function from an external library."
+    },
+    "virtual" : {
+        "type":"Modifier",
+        "msg":"Methods marked with virtual will override their parent's version, even when treated as the parent class.",
+        "ex":["class MyClass virtual { ... }", "virtual void my_method(...);"]
     },
     "constexpr" : {
-        "type":"Statement",
+        "type":"Definition",
         "msg":"Define a compile-time int / float constant.",
         "ex":["constexpr int x = 1 << 12 + 3;",
             "constexpr float y = 10.0 * 5.56;"]
@@ -130,32 +135,32 @@
         "ex":["@asm(used registers, \"assembly\", temporary values)"]
     },
     "struct" : {
-        "type":"Declare a",
+        "type":"Declaration",
         "msg":"Creates a new struct type.",
         "ex":["struct name;", "struct name { ... }"]
     },
     "union" : {
-        "type":"Declare a",
+        "type":"Declaration",
         "msg":"Creates a new union type.",
         "ex":["union name;", "union name { ... }"]
     },
     "variant" : {
-        "type":"Declare a",
+        "type":"Declaration",
         "msg":"Creates a union type with an extra `type` member holding the currently used member in the union.",
         "ex":["variant name { ... }"]
     },
     "class" : {
-        "type":"Declare a",
+        "type":"Declaration",
         "msg":"Creates a class type. All members must be defined together and before any function is <u>defined</u>. Any number of `class` blocks can be used to define a class.",
         "ex":["class name { ... }"]
     },
     "module" : {
-        "type":"Declare a",
+        "type":"Declaration",
         "msg":"Create a global module. Any number of `module` blocks can be used to define a module.",
         "ex":["module name { ... }"]
     },
     "enum" : {
-        "type":"Declare an",
+        "type":"Declaration",
         "msg":"Creates an enumeration.",
         "ex":["enum name { ... }"]
     },

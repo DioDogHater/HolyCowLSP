@@ -1,15 +1,35 @@
 #include "test"
 #define X 100
 
+#define u8 uint8
+#define u16 uint16
+#define u32 uint32
+#define u64 uint64
+
+#define i8 int8
+#define i16 int16
+#define i32 int32
+#define i64 int64
+
+int x = 10;
+
 struct test {
     int x = 10;
+    int32 y = 5;
+}
+
+enum bruh {
+    x = 5,  // Test
+    y = 10  // prog
 }
 
 @cfunc int test(int x);
 
 variant test2 {
-    int y = 15;
+    uint32 y = 15;
 }
 
-test x = 10;
+constexpr int ts = 50;
+
+test x = test{};
 x.x;
